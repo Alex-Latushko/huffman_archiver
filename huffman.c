@@ -1,8 +1,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <strings.h>
+
+#define TEST 0
+#define TEST_LENGTH_C  100
+#define TEST_LENGTH_X  100
 
 #define SIZE 256
+
+void print_bin(unsigned char x);
+void print_array(const char* arr, int length);
+
 
 const int power_of_two[8] = {1, 2, 4, 8, 16, 32, 64, 128};
 
@@ -11,9 +20,9 @@ struct leaf{
 		int up;				// number of the upper leaf in the tree
 		int left;			// number of left leaf in the tree
 		int right;			// number of right leaf in the tree
-		int name_length;
+		int name_length;	// TO DO replace for strlen();
 		int code_length;
-		char code[8];		// Huffman code of the leaf
+		char code[8];		// Huffman code of the leaf   // unsigned
 		char name[SIZE];
 	};
 
@@ -87,15 +96,12 @@ void build_tree(struct leaf* tree, int number_of_chars){
 		tree[current_leaf].frq = tree[min_leaf].frq + tree[pre_min_leaf].frq;
 		tree[current_leaf].left = min_leaf;
 		tree[current_leaf].right = pre_min_leaf;
-		tree[current_leaf].name_length = tree[min_leaf].name_length + tree[pre_min_leaf].name_length;
-		for (int j = 0; j < tree[min_leaf].name_length; j++){
-			tree[current_leaf].name[j] = tree[min_leaf].name[j];
-		}
-		for (int j = tree[min_leaf].name_length; j < tree[current_leaf].name_length; j++){
-			tree[current_leaf].name[j] = tree[pre_min_leaf].name[j-tree[min_leaf].name_length];
-		}
-		tree[min_leaf].up = tree[pre_min_leaf].up = current_leaf;
 
+		strncat(tree[current_leaf].name, tree[min_leaf].name, tree[min_leaf].name_length);
+		strncat(tree[current_leaf].name, tree[pre_min_leaf].name, tree[pre_min_leaf].name_length);
+		tree[current_leaf].name_length = strlen(tree[current_leaf].name);
+
+		tree[min_leaf].up = tree[pre_min_leaf].up = current_leaf;
 		min_leaf = pre_min_leaf = current_leaf;
 	}
 }
@@ -103,8 +109,8 @@ void build_tree(struct leaf* tree, int number_of_chars){
 void check_the_tree(const struct leaf* tree, int number_of_chars, int length){
 	int root = 2*number_of_chars - 2;
 	printf("Root is: %d\n", root);
-	printf("Frq of the root is: \t%d\n", tree[root].frq);
-	printf("Length of the name of the root is: \t\t%d\n", tree[root].name_length);
+	printf("Frq of the root is: \t\t%d\n", tree[root].frq);
+	printf("Length of the name of the root is: \t%d\n", tree[root].name_length);
 
 	printf("Length of the input file is equal to frequency of the root: ");
 	if (length == tree[root].frq){
@@ -124,15 +130,12 @@ void check_the_tree(const struct leaf* tree, int number_of_chars, int length){
 
 void produce_code_for_symbols(struct leaf* tree, int root){
 	for (int i = root - 1; i >= 0; i--){
-		for (int j = 0; j < tree[tree[i].up].code_length; j++){
+		int up_code_length = tree[tree[i].up].code_length;
+		for (int j = 0; j < up_code_length ; j++){
 			tree[i].code[j] = tree[tree[i].up].code[j];
 		}
-		if (i == tree[tree[i].up].left){
-			tree[i].code[tree[tree[i].up].code_length] = 1;
-		} else {
-			tree[i].code[tree[tree[i].up].code_length] = 0;
-		}
-		tree[i].code_length = tree[tree[i].up].code_length + 1;
+		tree[i].code[up_code_length] = (i == tree[tree[i].up].left) ? 1 : 0;
+		tree[i].code_length = up_code_length + 1;
 	}
 }
 
@@ -157,24 +160,60 @@ void fprint_pre_data(FILE*in_file, FILE* out_file,long length, int number_of_cha
 
 
 int find_the_leaf_with_name_as_the_char(char ch, const int number_of_chars,const struct leaf* tree){
-		int result = 0;
 		for(int i = 0; i < number_of_chars; i++){
 			if (ch == tree[i].name[0]){
-				result = i;
-				break;
+				return i;
 			}
 		}
-		return result;
+		return -1;
 }
 
 void record_to_out_char(int* out_char,int* rest_in_code,int code_length, int* full_in_out_char,const char* code){
+	#if TEST
+		printf("=========record_to_out_char==========\n");
+		printf("full_in_out_char before: %d\n", *full_in_out_char);
+		printf("out_char before: ");
+		print_bin(*out_char);
+		printf("\n\n");
+
+
+		printf("code of the input char: ");
+		print_array(code, code_length);
+		printf("\n");
+		printf("code_length: %d\n\n", code_length);
+		printf("rest in code before: %d\n", *rest_in_code);
+		printf("to out char:" );
+	#endif
+
 	while ((*rest_in_code < code_length) && (*full_in_out_char < 8)){ //record to out_char until code ends or out_char is full
+
 		if (code[*rest_in_code]){
 			*out_char |= power_of_two[7 - *full_in_out_char];
+
+			#if TEST
+				printf("%d", 1);
+			#endif
+
+		} else {
+
+			#if TEST
+				printf("%d", 0);
+			#endif
 		}
 		(*full_in_out_char)++;
 		(*rest_in_code)++;
 	}
+
+	#if TEST
+		printf("\n" );
+		printf("rest in code after: %d\n\n", *rest_in_code);
+		printf("full_in_out_char after: %d\n", *full_in_out_char);
+
+		printf("out_char after: ");
+		print_bin(*out_char);
+		printf("\n in integer: %d", *out_char);
+		printf("\n=========end==========\n");
+	#endif
 }
 
 void fprint_post_data(FILE* out_file,int out_char,int full_in_out_char,long* length){
@@ -186,7 +225,7 @@ void fprint_post_data(FILE* out_file,int out_char,int full_in_out_char,long* len
 	//print length of the output
 	rewind(out_file); //move to the beginning of the file
 	fprintf(out_file, "%ld\n", *length);  // record actual length of output file
-	printf("Length of output1: %ld\n", *length);
+	printf("Length of output: %ld\n", *length);
 }
 
 //////////////////////////////////////////extraction functions
@@ -237,19 +276,35 @@ int get_min_length_of_code(const struct hash_code* hash_tree){
 }
 
 void read_from_in_char(unsigned char* in_char, char *long_buffer, int *full_in_buffer, int size){
+	#if TEST
+		puts("=======read_from_char==========");
+		printf("Buffer before:");
+		print_array(long_buffer, *full_in_buffer);
+		printf("\n");
+		printf("Full_in_buffer: %d\n", *full_in_buffer);
+	#endif
+
 	for (int j = *full_in_buffer + 1; j < *full_in_buffer + size + 1; j++){ //transfer in_char to long_buffer
 		long_buffer[2 * (*full_in_buffer) + size - j] = (*in_char) & 1;
 		*in_char >>= 1;
 	}
 	*full_in_buffer += size;
+
+	#if TEST
+		printf("Buffer after:");
+		print_array(long_buffer, *full_in_buffer);
+		printf("\n");
+		printf("Full_in_buffer: %d\n", *full_in_buffer);
+	#endif
 };
 
 void decode_char_and_write(FILE* out_file, int min_length_of_code,int* full_in_buffer, char* long_buffer, struct hash_code* hash_tree){
 		char is_found = 0;
 		int current_code = 0;
 		int leaf_number = 0;
-		while (*full_in_buffer > min_length_of_code){ // try codes from buffer and examine leafs with such code
-			for (int j = min_length_of_code; (!is_found) && (j < 8); j++){
+		char anyone_found = 1;
+		while (*full_in_buffer > min_length_of_code && anyone_found ){ // try codes from buffer and examine leafs with such code
+			for (int j = min_length_of_code; (!is_found) && (j < 8) && (j <= *full_in_buffer); j++){
 				current_code = 0;
 				for (int k = 0; k < j; k++){
 					current_code += long_buffer[k] * power_of_two[7-k];
@@ -257,21 +312,37 @@ void decode_char_and_write(FILE* out_file, int min_length_of_code,int* full_in_b
 				if (hash_tree[current_code].code_length == j) {
 					leaf_number = current_code;
 					is_found = 1;
+					anyone_found = 1;
 					break;
-				}
+				} else { anyone_found = 0; }
 			}
 
-
 			if (is_found){
+				#if TEST
+					printf("Code:");
+					print_bin(leaf_number);
+					printf("\n");
+					printf("Code length: %d\n", hash_tree[leaf_number].code_length);
+				#endif
 				//shift of the long buffer
-				for (int j = 0; j < 16-hash_tree[leaf_number].code_length; j++){
-					long_buffer[j] = long_buffer[j+hash_tree[leaf_number].code_length];
+				for (int i = 0; i < 16-hash_tree[leaf_number].code_length; i++){
+					long_buffer[i] = long_buffer[i + hash_tree[leaf_number].code_length];
 				}
+
+			#if TEST
+				printf("\t\t\t\t\tOut_char decimal: %d\t hex %x\n",hash_tree[leaf_number].name, hash_tree[leaf_number].name );
+			#endif
 
 				fprintf(out_file, "%c", hash_tree[leaf_number].name);
 				*full_in_buffer -= hash_tree[leaf_number].code_length;
 				leaf_number = 0;
 				is_found = 0;
+			#if TEST
+				printf("Buffer after write out_char:");
+				print_array(long_buffer, *full_in_buffer);
+				printf("\n");
+				printf("Full_in_buffer: %d\n", *full_in_buffer);
+			#endif
 			}
 		}
 }
@@ -284,17 +355,34 @@ void decoding(FILE* in_file, FILE* out_file, struct hash_code* hash_tree, long l
 	unsigned char in_char = 0;
 
 	printf("Decoding...\n");
+
+	#if TEST
+		length = TEST_LENGTH_C;
+	#endif
+
 	for (long i = length; i > 0; i--){
+		#if TEST
+			puts("*************************************************");
+			printf("Length: %ld\n", (length - i));
+		#endif
+
 
 		if (i > 2){
 			in_char = fgetc(in_file);
 		} else if (i == 2){
 			in_char = fgetc(in_file);
 			continue;
-		} else if (i == 1){
+		} else if (i == 1 && !TEST){
 			last_full_in_buffer = fgetc(in_file) - '0';
 			printf("last_full_in_buffer: %d\n", last_full_in_buffer);
 		}
+
+		#if TEST
+			printf("input char: %x\n", in_char);
+			printf("input char: ");
+			print_bin(in_char);
+			printf("\n\n");
+		#endif
 
 		read_from_in_char(&in_char, long_buffer, &full_in_buffer, last_full_in_buffer);
 		decode_char_and_write(out_file, min_length_of_code, &full_in_buffer, long_buffer, hash_tree);
@@ -305,18 +393,45 @@ void decoding(FILE* in_file, FILE* out_file, struct hash_code* hash_tree, long l
 	printf("End of the extract\n");
 }
 
+void print_bin(unsigned char x){
+	int arr[8] = {0};
+	for (int i = 0; i < 8; ++i){
+		arr[7 - i] = x % 2;
+		x /= 2;
+	}
+	for (int i = 0; i < 8; ++i){
+		printf("%d", arr[i] > 0 ? arr[i] : -arr[i]);
+	}
+}
+
+void print_array(const char* arr, int length){
+	for (int i = 0; i < length; ++i){
+		printf("%d", arr[i]);
+	}
+}
+
 int main(int argc, char **argv) {
 	time_t timer1 = time(NULL);
 
+#if TEST
+	system("cls");
+	puts("TEST MODE ON!");
+#endif
 
 	FILE* in_file = fopen(argv[1], "rb");
 	if (in_file != NULL){
 		printf("Open input file: %s\n", argv[1]);
+	} else {
+		printf("There is no such file: %s\n", argv[1]);
+		exit(1);
 	}
 
 	FILE* out_file = fopen(argv[3], "wb");
 	if (out_file != NULL){
 		printf ("Open output file:  %s\n", argv[3]);
+	} else {
+		printf("There is no such file: %s\n", argv[3]);
+		exit(1);
 	}
 //**********************************************************************************************************
 //******************************************COMPRESE********************************************************
@@ -341,20 +456,35 @@ int main(int argc, char **argv) {
 
 	// record input file to the output file
 	char in_char;
+
 	int leaf_number;
-	int full_in_out_char = 0;
 	int rest_in_code = 0;
-	length = 0;
-	int out_char = 0;
 	int code_length = 0;
+
+	int full_in_out_char = 0;
+	int out_char = 0;
+
+	length = 0;
 	while ( (in_char = fgetc(in_file)) != EOF){
 
-		leaf_number = find_the_leaf_with_name_as_the_char(in_char, number_of_chars, tree);
+		#if TEST
+			printf("%s\n", "*********************************************");
+			printf("length: %ld\n", length);
+			printf("in_char: %x\n", in_char);
+			printf("in_char: ");
+			print_bin(in_char);
+			printf("\n");
+		#endif
+
+		leaf_number = find_the_leaf_with_name_as_the_char(in_char, number_of_chars, tree); // add check for -1
 		code_length = tree[leaf_number].code_length;
-
 		record_to_out_char(&out_char, &rest_in_code, code_length, &full_in_out_char, tree[leaf_number].code);
-
 		if (full_in_out_char == 8){ // if buffer full, record to the output file
+
+			#if TEST
+				printf("wright out_char: %x\n\n", out_char);
+			#endif
+
 			fprintf(out_file, "%c", out_char);
 			length++;
 			out_char = 0;
@@ -365,23 +495,19 @@ int main(int argc, char **argv) {
 			}
 		}
 		rest_in_code = 0;
+
+	#if TEST
+		if (length == TEST_LENGTH_X){break;}
+	#endif
 	}
 
 	fprint_post_data(out_file, out_char, full_in_out_char, &length);
-	/*fprintf(out_file, "%c", out_char);//print the last buffer
-	length++;
-	fprintf(out_file,"%d", full_in_out_char);//print the number of significant bits in last char
-	length++;
-
-	//print length of the output
-	rewind(out_file); //move to the beginning of the file
-	fprintf(out_file, "%ld\n", length);  // record actual length of output file
-	printf("Length of output: %ld\n", length);*/
-
 	puts("Compression is over\n");
-	} //_________________________________________________________ end of compress
+	}
 
-	if (argv[2][1] == 'x'){  //_______________________ begin of the extract
+//**********************************************************************************************************
+//******************************************EXTRACT********************************************************
+	if (argv[2][1] == 'x'){
 
 		long length = read_length(in_file);
 		int number_of_chars = read_number_of_chars(in_file);
